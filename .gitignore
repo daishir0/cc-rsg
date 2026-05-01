@@ -1,0 +1,41 @@
+# cc-rsg 利用プロジェクト側に作られる作業ディレクトリ
+.cc-rsg/
+
+# 設計議論ドキュメント(社内検証用に手元保管)
+HANDOFF.md
+
+# Claude Code 関連の作業ファイル
+outputs/
+logs/
+.claude/settings.local.json
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Node.js
+node_modules/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS / Editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# 環境固有設定 / 機密情報
+.env
+.env.local
+*.token
+.credentials.json
