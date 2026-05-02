@@ -216,7 +216,8 @@ cc-rsg/
 
 ### ロードマップ(暫定)
 
-- v0.2: 利用フィードバックを受けてテンプレート追加
+- v0.2: 章ファイル命名規約(`NN-slug.md`)と必須3ファイル(`00-metadata.md` / `99-unresolved.md` / `traceability.md`)を強制化、検証スクリプトに命名チェック追加(済)
+- v0.2+: 利用フィードバックを受けてテンプレート追加
 - v0.3: カスタムカテゴリのUI追加
 - v1.0: 数件の実プロジェクト適用後、安定版として公開
 
@@ -483,7 +484,8 @@ Currently v0.1.0 (initial draft).
 
 ### Roadmap (tentative)
 
-- v0.2: Add templates based on user feedback
+- v0.2: Enforce chapter file naming convention (`NN-slug.md`) and required files (`00-metadata.md`, `99-unresolved.md`, `traceability.md`); add naming/required-file checks to the verification script (done)
+- v0.2+: Add templates based on user feedback
 - v0.3: UI for custom categories
 - v1.0: Stable release after several real-project applications
 

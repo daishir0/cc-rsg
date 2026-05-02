@@ -44,6 +44,19 @@ class CoverageReport:
     questions_open: int
     questions_blocked_referenced: list[str]
     integrity_issues: list[str]
+    naming_warnings: list[str]
+    missing_required: list[str]
+    target_dir_for_required: str
+
+
+# 章ファイル命名規約: 2桁ゼロ埋め(00-99) + ハイフン + ASCII小文字数字ハイフンの slug + .md
+NAMING_PATTERN = re.compile(r"^(0\d|[1-9]\d)-[a-z0-9-]+\.md$")
+
+# 番号無しで存在する予約ファイル名(命名規約 NAMING_PATTERN とは別系統)
+NAMING_EXEMPT = {"traceability.md", "README.md"}
+
+# 必ず存在すべき3ファイル(drafts/ または final/ に必須)
+REQUIRED_FILES = ("00-metadata.md", "99-unresolved.md", "traceability.md")
 
 
 def load_inventory(inventory_path: Path) -> list[InventoryItem]:
@@ -168,6 +181,39 @@ def check_question_integrity(
     return issues, sorted(set(blocked_referenced))
 
 
+def check_naming_convention(drafts_dir: Path) -> list[str]:
+    """命名規約違反のファイル名を WARN メッセージとして返す。"""
+    if not drafts_dir.exists() or not drafts_dir.is_dir():
+        return []
+    warnings: list[str] = []
+    for f in sorted(drafts_dir.glob("*.md")):
+        if f.name in NAMING_EXEMPT:
+            continue
+        if not NAMING_PATTERN.match(f.name):
+            warnings.append(
+                f"{f.name} は命名規約 ({NAMING_PATTERN.pattern}) または予約ファイル {sorted(NAMING_EXEMPT)} に違反"
+            )
+    return warnings
+
+
+def check_required_files(cc_rsg_dir: Path) -> tuple[list[str], Path]:
+    """必須ファイル(00-metadata.md, 99-unresolved.md, traceability.md)の欠落を返す。
+
+    final/ が存在すればそちらを優先、無ければ drafts/ を対象とする。
+    """
+    final_dir = cc_rsg_dir / "final"
+    drafts_dir = cc_rsg_dir / "drafts"
+    target_dir = final_dir if final_dir.exists() else drafts_dir
+
+    missing: list[str] = []
+    if not target_dir.exists():
+        return ([f"対象ディレクトリ {target_dir} が存在しない"], target_dir)
+    for required in REQUIRED_FILES:
+        if not (target_dir / required).exists():
+            missing.append(f"必須ファイル {required} が {target_dir} に存在しない")
+    return (missing, target_dir)
+
+
 def build_report(cc_rsg_dir: Path) -> CoverageReport:
     inventory_path = cc_rsg_dir / "inventory.json"
     questions_path = cc_rsg_dir / "questions.json"
@@ -189,6 +235,9 @@ def build_report(cc_rsg_dir: Path) -> CoverageReport:
         questions, inventory_ids, drafts
     )
 
+    naming_warnings = check_naming_convention(drafts_dir)
+    missing_required, target_dir_for_required = check_required_files(cc_rsg_dir)
+
     open_q = sum(1 for q in questions if q.get("status") == "open")
 
     total = len(inventory)
@@ -205,6 +254,9 @@ def build_report(cc_rsg_dir: Path) -> CoverageReport:
         questions_open=open_q,
         questions_blocked_referenced=blocked_referenced,
         integrity_issues=integrity_issues,
+        naming_warnings=naming_warnings,
+        missing_required=missing_required,
+        target_dir_for_required=str(target_dir_for_required),
     )
 
 
@@ -232,6 +284,20 @@ def render_text(report: CoverageReport) -> str:
     lines.append(
         f"- draft 内 [BLOCKED] 参照済み Q-ID: {len(report.questions_blocked_referenced)} 件"
     )
+    lines.append("")
+    lines.append("【命名規約チェック】(drafts/)")
+    if report.naming_warnings:
+        for w in report.naming_warnings:
+            lines.append(f"- WARN: {w}")
+    else:
+        lines.append("- 違反なし")
+    lines.append("")
+    lines.append(f"【必須ファイル】(対象: {report.target_dir_for_required})")
+    if report.missing_required:
+        for m in report.missing_required:
+            lines.append(f"- ERROR: {m}")
+    else:
+        lines.append("- すべて存在")
     lines.append("")
     lines.append("【整合性チェック】")
     if report.integrity_issues:
@@ -263,6 +329,9 @@ def render_json(report: CoverageReport) -> str:
             "questions_open": report.questions_open,
             "questions_blocked_referenced": report.questions_blocked_referenced,
             "integrity_issues": report.integrity_issues,
+            "naming_warnings": report.naming_warnings,
+            "missing_required": report.missing_required,
+            "target_dir_for_required": report.target_dir_for_required,
         },
         ensure_ascii=False,
         indent=2,
@@ -290,6 +359,11 @@ def main() -> int:
         action="store_true",
         help="未言及インベントリ項目があれば exit code 1 で終了する",
     )
+    parser.add_argument(
+        "--strict",
+        action="store_true",
+        help="命名規約違反 (warn) も exit code 1 とみなす(必須ファイル欠落は --strict 無しでも常に exit 1)",
+    )
     args = parser.parse_args()
 
     try:
@@ -303,7 +377,12 @@ def main() -> int:
     else:
         print(render_text(report))
 
+    # 必須ファイル欠落は常に error
+    if report.missing_required:
+        return 1
     if args.fail_on_uncovered and report.uncovered:
+        return 1
+    if args.strict and report.naming_warnings:
         return 1
     return 0
 

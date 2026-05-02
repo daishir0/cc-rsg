@@ -56,6 +56,7 @@ Phase 3でTaskツールを介して並列起動するサブエージェントへ
 - 章ID: {chapter_id}
 - 章タイトル: {chapter_title}
 - 章の位置づけ(目次内): {chapter_position}
+- 出力ファイル名: {output_file_name}    ← メインエージェントが採番済。命名判断は禁止
 - テンプレート定義(該当章の構造):
 {template_section_markdown}
 
@@ -105,11 +106,12 @@ Phase 3でTaskツールを介して並列起動するサブエージェントへ
 ================================
 [6. 出力フォーマット]
 ================================
-最終的に以下構造のMarkdownを返してください。
+最終的に以下構造のMarkdownを返してください。`output_file_name` を含むフロントマターは必須です。
 
 ---
 chapter_id: {chapter_id}
 chapter_title: {chapter_title}
+output_file_name: {output_file_name}
 generated_at: {ISO8601}
 references_count: {数値}
 questions_count: {数値}
@@ -151,6 +153,9 @@ blocked_sections: [{section_name}, ...]
   内部コード探索には使用しない。
 - 章本文の長さの目安: 中粒度なら200〜500行、詳細粒度なら500〜1500行。
   これを大幅に超える場合は WBS 分割を見直す必要があるためメインに報告する。
+- **ファイル名は メインエージェントから渡された `{output_file_name}` を厳守する。**
+  自由に命名してはならない(`chapter2_architecture.md` のような独自命名は禁止)。
+  保存先は `drafts/{output_file_name}` で固定。
 
 ================================
 [完了報告]
@@ -180,6 +185,7 @@ prompt_variables = {
     "chapter_id": "ch-04-routes",
     "chapter_title": "ルート / エンドポイント一覧",
     "chapter_position": "第4章 / 全8章中",
+    "output_file_name": "04-routes.md",   # ASCII slug 規約。サブエージェントは厳守
     "template_section_markdown": "...(templates/web-app.md の該当章を抜粋)...",
     "inventory_items_json": "[{...}, {...}, ...]"
 }
@@ -250,6 +256,7 @@ from collections import defaultdict
 def launch_subagents(wbs, goal, inventory):
     tasks = []
     for chapter in wbs.chapters:
+        # chapter.file_name は Phase 2 で確定済み(命名規約 ^(0\d|[1-9]\d)-[a-z0-9-]+\.md$)
         chapter_inventory = [
             item for item in inventory.items
             if item.id in chapter.assigned_inventory_ids
@@ -258,10 +265,11 @@ def launch_subagents(wbs, goal, inventory):
             chapter=chapter,
             goal=goal,
             inventory_items=chapter_inventory,
-            parallel_count=len(wbs.chapters)
+            parallel_count=len(wbs.chapters),
+            output_file_name=chapter.file_name,    # 必須: サブエージェントへ伝達
         )
         task = Task(
-            description=f"Investigate chapter: {chapter.title}",
+            description=f"Investigate chapter: {chapter.chapter_title}",
             prompt=prompt,
             subagent_type="general-purpose"
         )
@@ -270,12 +278,12 @@ def launch_subagents(wbs, goal, inventory):
     # 並列起動
     results = run_in_parallel(tasks)
 
-    # 結果集約
-    for result in results:
-        save_draft(f"drafts/{result.chapter_id}.md", result.markdown)
+    # 結果集約: ファイル名は wbs.json で確定したもののみを使用(自由命名禁止)
+    for result, chapter in zip(results, wbs.chapters):
+        save_draft(f"drafts/{chapter.file_name}", result.markdown)
         merge_questions(result.questions)
         if result.blocked_sections:
-            mark_blocked(result.chapter_id, result.blocked_sections)
+            mark_blocked(chapter.file_name, result.blocked_sections)
 ```
 
 ---
@@ -284,7 +292,8 @@ def launch_subagents(wbs, goal, inventory):
 
 メインエージェントは各サブエージェントの結果に対して以下を確認する。
 
-- [ ] フロントマター(`chapter_id`, `chapter_title`, `references_count` 等)が揃っているか
+- [ ] フロントマター(`chapter_id`, `chapter_title`, `output_file_name`, `references_count` 等)が揃っているか
+- [ ] `output_file_name` が `wbs.json.chapters[].file_name` と一致しているか(逸脱は再実行)
 - [ ] `references_count` が0の場合、サブエージェントに再実行を指示する(根拠なし章は不可)
 - [ ] `blocked_sections` がある場合、Question Bankに対応エントリが登録されているか
 - [ ] 章本文に Markdown構文エラーがないか(コードブロックの閉じ忘れ等)

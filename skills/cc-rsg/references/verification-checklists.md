@@ -61,9 +61,14 @@ Phase 4の検証は以下3階層で実施する。
 
 テンプレートを問わず、全仕様書に対して以下を確認する。
 
+### ファイル命名規約・必須ファイル
+- [ ] `drafts/` 配下の全章ファイルが `^(0\d|[1-9]\d)-[a-z0-9-]+\.md$` パターンに合致(`coverage-check.py` で自動検査、違反は WARN)
+- [ ] 必須3ファイル(`00-metadata.md`, `99-unresolved.md`, `traceability.md`)が `drafts/` または `final/` に存在(`coverage-check.py` で自動検査、欠落は ERROR)
+- [ ] 章番号(`NN` 部分)に重複・不要な飛びがない
+
 ### トレーサビリティ
 - [ ] 各章で1件以上の `[REF: file:lines]` 参照がある
-- [ ] トレーサビリティ表が `final/トレーサビリティ表.md` として生成されている
+- [ ] トレーサビリティ表が `final/traceability.md` として生成されている
 - [ ] 参照先のファイルパスが実在する(リンク切れがない)
 - [ ] 参照先の行番号範囲が妥当(ファイルの行数を超えていない)
 
@@ -93,6 +98,8 @@ Phase 4の検証は以下3階層で実施する。
 
 `scripts/coverage-check.py` で自動化される項目:
 - インベントリベース検証(全件)
+- 章ファイル命名規約チェック(WARN、`--strict` で ERROR 化)
+- 必須3ファイル存在チェック(`00-metadata.md` / `99-unresolved.md` / `traceability.md`、欠落は常に ERROR)
 - トレーサビリティの「参照先ファイルパス実在性」
 - Question Bank整合性の必須フィールドチェック
 
