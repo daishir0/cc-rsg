@@ -164,8 +164,8 @@ def resolve_refs_to_units(refs: list[dict], units: list[dict]) -> dict[str, list
         if ref_path in units_by_path:
             candidates.extend(units_by_path[ref_path])
         else:
-            # 末尾一致（agent が `redmine-master/app/models/issue.rb` と書いて、
-            # source-map は `redmine-master/app/models/issue.rb` で記録、のような共通形）
+            # 末尾一致（agent が `app/models/issue.rb` と書いて、
+            # source-map は `<workspace>/app/models/issue.rb` で記録、のような共通形）
             for path, ulist in units_by_path.items():
                 if path.endswith("/" + ref_path) or ref_path.endswith("/" + path):
                     candidates.extend(ulist)

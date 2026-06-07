@@ -4,7 +4,8 @@ cc-rsg coverage-check.py
 
 Phase 4 (Verify) で実行する検証スクリプト。
 インベントリ言及だけでなく、各章の品質指標 (REF 数 / 行数 / コードブロック数 / Mermaid 図数 /
-Sources Read セクション等) と Question Bank の整合性を一括検証する。
+Sources Read セクション等) と Question Bank の整合性、MECE 検査、outline モードでの
+全 entity 列挙チェックを一括で実施する。
 
 以下を検証する:
 
@@ -130,6 +131,11 @@ class CoverageReport:
     mece_passed_strict: bool = True
     mece_coverage_rate: float = 0.0
     gate_failures: list[str] = field(default_factory=list)
+    # outline / interactive 用
+    depth_mode: str = "comprehensive"
+    confidence_verified: int = 0
+    confidence_inferred: int = 0
+    confidence_assumed: int = 0
 
 
 # ----------------------------------------------------------------------------
@@ -383,6 +389,26 @@ def check_required_files(target_dir: Path) -> list[str]:
 # レポート構築
 # ----------------------------------------------------------------------------
 
+def detect_depth_mode(cc_rsg_dir: Path) -> str:
+    """Read goal.json (if present) and return the configured depth_mode.
+
+    Returns "comprehensive" when the field is missing — that preserves the
+    legacy behaviour for projects that pre-date the outline mode flag.
+    """
+    goal_path = cc_rsg_dir / "goal.json"
+    if not goal_path.exists():
+        return "comprehensive"
+    try:
+        with goal_path.open() as f:
+            data = json.load(f)
+    except (json.JSONDecodeError, OSError):
+        return "comprehensive"
+    mode = data.get("depth_mode")
+    if mode not in {"comprehensive", "outline", "interactive"}:
+        return "comprehensive"
+    return mode
+
+
 def build_report(
     cc_rsg_dir: Path,
     *,
@@ -408,6 +434,8 @@ def build_report(
     chapters = scan_chapter_files(target_dir)
     inventory_ids = {item.id for item in inventory}
 
+    depth_mode = detect_depth_mode(cc_rsg_dir)
+
     # 旧版互換: 言及検出
     uncovered: list[InventoryItem] = []
     for item in inventory:
@@ -428,14 +456,20 @@ def build_report(
     chapter_metrics: list[ChapterMetrics] = []
     for name, content in chapters.items():
         chapter_metrics.append(compute_chapter_metrics(name, content))
-    evaluate_chapter_gates(
-        chapter_metrics,
-        min_refs=min_refs_per_chapter,
-        min_lines=min_lines_per_chapter,
-        min_code_blocks=min_code_blocks_per_chapter,
-        min_mermaid=min_mermaid_per_chapter,
-        min_sources_read=min_sources_read_per_chapter,
-    )
+
+    # outline / interactive モードでは comprehensive 用の章ゲート(200行 / REF 10件 /
+    # コードブロック / Mermaid / Sources Read 5件) は撤廃。代わりに「全 entity が
+    # 表のいずれかの行に存在するか」を MECE 検査基準にする(下の uncovered ロジック
+    # を流用)。
+    if depth_mode == "comprehensive":
+        evaluate_chapter_gates(
+            chapter_metrics,
+            min_refs=min_refs_per_chapter,
+            min_lines=min_lines_per_chapter,
+            min_code_blocks=min_code_blocks_per_chapter,
+            min_mermaid=min_mermaid_per_chapter,
+            min_sources_read=min_sources_read_per_chapter,
+        )
 
     # inventory min auto
     if min_inventory == "auto":
@@ -512,6 +546,24 @@ def build_report(
             for f in m.failures:
                 gate_failures.append(f"章 {m.file}: {f}")
 
+    # outline / interactive モードの confidence ラベル集計
+    # 章本文に 🟢 VERIFIED / 🟡 INFERRED / 🔴 ASSUMED が何回出るかを数える
+    verified = inferred = assumed = 0
+    if depth_mode != "comprehensive":
+        for _, content in chapters.items():
+            verified += content.count("🟢") + content.count("VERIFIED")
+            inferred += content.count("🟡") + content.count("INFERRED")
+            assumed  += content.count("🔴") + content.count("ASSUMED")
+        # ASSUMED 比率が高すぎる場合は警告
+        total_labels = verified + inferred + assumed
+        if total_labels > 0:
+            assumed_ratio = assumed / total_labels
+            if assumed_ratio > 0.6:
+                gate_failures.append(
+                    f"[outline] ASSUMED 比率が {assumed_ratio:.0%} "
+                    f"(60% 超) — 機械抽出による grounding を強化してください"
+                )
+
     total = len(inventory)
     rate = (len(inventory) - len(uncovered)) / total * 100 if total else 0.0
 
@@ -541,6 +593,10 @@ def build_report(
         mece_passed_strict=mece_passed,
         mece_coverage_rate=mece_rate,
         gate_failures=gate_failures,
+        depth_mode=depth_mode,
+        confidence_verified=verified,
+        confidence_inferred=inferred,
+        confidence_assumed=assumed,
     )
 
 
@@ -551,6 +607,25 @@ def build_report(
 def render_text(report: CoverageReport) -> str:
     lines: list[str] = []
     lines.append("=== cc-rsg Phase 4 検証レポート ===")
+    lines.append("")
+    lines.append(f"【depth モード】 {report.depth_mode}")
+    if report.depth_mode != "comprehensive":
+        total_labels = (
+            report.confidence_verified
+            + report.confidence_inferred
+            + report.confidence_assumed
+        )
+        if total_labels > 0:
+            v_pct = report.confidence_verified / total_labels * 100
+            i_pct = report.confidence_inferred / total_labels * 100
+            a_pct = report.confidence_assumed / total_labels * 100
+            lines.append(
+                f"  Confidence KPI: 🟢 VERIFIED {report.confidence_verified} ({v_pct:.0f}%) / "
+                f"🟡 INFERRED {report.confidence_inferred} ({i_pct:.0f}%) / "
+                f"🔴 ASSUMED {report.confidence_assumed} ({a_pct:.0f}%)"
+            )
+        else:
+            lines.append("  Confidence KPI: ラベル未検出 — 各表セルに 🟢/🟡/🔴 を付与してください")
     lines.append("")
     lines.append("【インベントリカバレッジ】")
     lines.append(f"- 全 inventory 項目: {report.total_inventory} 件 (必要最低: {report.inventory_required_min} 件)")

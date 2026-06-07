@@ -16,7 +16,7 @@ cc-rsg source-map.py
 
 使い方:
     python source-map.py \\
-        --target redmine-master \\
+        --target ./src \\
         --output .cc-rsg/source-map.json \\
         --exclude-globs '**/test/**,**/vendor/**,**/node_modules/**'
 
