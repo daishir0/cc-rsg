@@ -11,7 +11,7 @@ maintainable regex-based extraction.
 
 A source unit is the smallest item for which the spec wants
 traceability:
-- Ruby/Rails:  class / module level, controller action level, route group, migration, view
+- Ruby/Rails:  class / module level, top-level method (def), controller action level, route group, migration, view
 - Python:      class / def level
 - JavaScript:  export level, function definitions
 - Other:       file level (coarse, but far better than nothing)
@@ -151,6 +151,25 @@ def extract_ruby_units(
                 signature=f"{kw} {name}{rest}".strip(),
                 fingerprint=fingerprint(block_text),
             )
+            continue
+
+        m_def = RUBY_DEF_RE.match(line)
+        if m_def:
+            indent, self_prefix, name, rest = m_def.groups()
+            # Mirror extract_py_units: register only top-level `def`s as units.
+            # Methods inside a class/module are already part of that block's unit.
+            if indent == "":
+                end_line = extract_ruby_block(lines, i, indent)
+                block_text = "\n".join(lines[i:end_line])
+                yield SourceUnit(
+                    id=id_factory(),
+                    path=rel_path,
+                    line_range=(i + 1, end_line),
+                    kind="ruby_function",
+                    name=name,
+                    signature=f"def {self_prefix or ''}{name}{rest}".strip(),
+                    fingerprint=fingerprint(block_text),
+                )
             continue
 
         if is_routes:

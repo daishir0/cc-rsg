@@ -2,7 +2,7 @@
 """
 cc-rsg build-trace.py
 
-Extracts every `[REF: path:Lstart-Lend]` written in drafts/*.md (or
+Extracts every `[REF: path:start-end]` written in drafts/*.md (or
 final/*.md), matches them against the source units in
 `.cc-rsg/source-map.json`, and produces `.cc-rsg/trace.json`.
 

@@ -10,7 +10,7 @@ enumeration in a single pass.
 
 Checks performed:
 
-1.  `[REF: path:Lstart-Lend]` count per chapter (`--min-refs-per-chapter`)
+1.  `[REF: path:start-end]` count per chapter (`--min-refs-per-chapter`)
 2.  Body-line count per chapter (`--min-lines-per-chapter`)
 3.  Fenced-code-block count per chapter (`--min-code-blocks-per-chapter`)
 4.  Mermaid-diagram count per chapter (`--min-mermaid-per-chapter`)
@@ -275,19 +275,23 @@ def compute_chapter_metrics(name: str, content: str) -> ChapterMetrics:
         if in_code:
             continue
         stripped = line.strip()
-        if not stripped:
-            in_sources_read = False  # a blank line ends the Sources Read section
-            continue
         if SOURCES_READ_RE.match(line):
             in_sources_read = True
             continue
         if in_sources_read:
+            # Blank lines do NOT end the section. Standard Markdown puts a blank
+            # line between the `## Sources Read` heading and its bullet list, so
+            # terminating on the first blank line would zero the count for every
+            # well-formatted chapter.
+            if not stripped:
+                continue
             if SOURCES_READ_ITEM_RE.match(line):
                 sources_read_count += 1
-            else:
-                # End when the next heading appears.
-                if line.startswith("#"):
-                    in_sources_read = False
+                continue
+            # Any other non-blank line (typically the next heading) ends the
+            # section; fall through so it is still counted as body content.
+            in_sources_read = False
+        if not stripped:
             continue
         body_lines += 1
         refs += len(REF_RE.findall(line))
