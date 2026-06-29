@@ -103,7 +103,13 @@ Right after the skill starts, fix the scope and the goal. Every later decision d
 
 2. **Initialize the state directory**
    - Create the `.cc-rsg/` directory.
-   - If an existing `.cc-rsg/state.json` is found, branch to resume mode (see "State management and resume" below).
+   - **Stage the skill bundle into `.cc-rsg/skill/`**: every helper invocation in this document refers to the scripts and references through a `.cc-rsg/skill/...` path (e.g. `python .cc-rsg/skill/scripts/source-map.py ...`, `Consult .cc-rsg/skill/references/outline-tables.md`). Those paths only resolve if the bundle is copied next to the target repo's working directory. Copy this skill's `scripts/`, `references/`, `templates/`, and `agents/` directories into `.cc-rsg/skill/` once, at the start of Phase 0:
+     ```bash
+     mkdir -p .cc-rsg/skill
+     cp -r <skill_dir>/{scripts,references,templates,agents} .cc-rsg/skill/
+     ```
+     `<skill_dir>` is the directory that contains this SKILL.md (the installed skill root). This copy is idempotent — re-running it on resume simply refreshes the staged bundle. Skip nothing: until this step runs, the very first script call of every phase fails with "No such file or directory".
+   - If an existing `.cc-rsg/state.json` is found, branch to resume mode (see "State management and resume" below). Resume mode still re-stages the bundle (the step above) before continuing, in case the skill was reinstalled or upgraded.
 
 3. **Output language selection**
 
@@ -551,8 +557,8 @@ List the viewed file paths and line ranges at the **top of the chapter under a `
 Extract at least **10 concrete citations** from the viewed code, all in **exactly one format**:
 
 ```
-[REF: <workspace-relative path>:<Lstart>]
-[REF: <workspace-relative path>:<Lstart>-<Lend>]
+[REF: <workspace-relative path>:<start>]
+[REF: <workspace-relative path>:<start>-<end>]
 ```
 
 Examples:
@@ -643,7 +649,7 @@ Draft output path: .cc-rsg/drafts/05-data-model.md
 
 Quality bar:
 - Body ≥ 200 lines
-- [REF: path:Lstart-Lend] ≥ 10
+- [REF: path:start-end] ≥ 10
 - fenced code blocks ≥ 3
 - Mermaid diagrams ≥ 1 (ER diagram)
 - ≥ 5 files under ## Sources Read
@@ -1399,6 +1405,11 @@ For long-running analysis sessions, record progress / established facts / unreso
 
 ## Versioning and changelog
 
+- v0.6.0 (2026-06-29): external-report fixes to the deterministic pipeline.
+  - **Phase 0 bundle staging**: Phase 0 Step 2 now stages the skill bundle into `.cc-rsg/skill/` (`cp -r <skill_dir>/{scripts,references,templates,agents} .cc-rsg/skill/`). The helper scripts/references are invoked through `.cc-rsg/skill/...` paths throughout this document but nothing previously created that directory, so the first script call of each phase failed with "No such file or directory".
+  - **`[REF:]` placeholder consistency**: the citation placeholders in Phase 3 STEP B and the sub-agent prompt template used `<Lstart>` / `Lstart-Lend`, contradicting the strict-format rule that forbids a leading `L`. An agent following the placeholder literally wrote `[REF: file:L42-56]`, which `REF_RE` rejects, silently collapsing MECE coverage to 0. Placeholders are now bare-digit `<start>` / `start-end` (the parser stays strict).
+  - **`coverage-check.py` Sources Read counter**: a single blank line between the `## Sources Read` heading and its bullet list no longer terminates the section. Standard Markdown puts a blank line there, which previously zeroed `sources_read_count` for every well-formatted chapter; the section now ends only at the next heading.
+  - **`source-map.py` Ruby methods**: `RUBY_DEF_RE` is now applied in the Ruby extraction branch, emitting top-level `def`s as `ruby_function` units (mirroring how `PY_DEF_RE` emits top-level Python `def`s). Ruby inventories were previously class/module-only.
 - v0.5.0 (2026-06-15): intent-vs-delivery enforcement + post-pilot quality hardening.
   - **Mermaid styling contract**: every Mermaid diagram in `drafts/` / `final/` is structure-only (no per-node fill, no hex colours, no `style ... fill:`). The rendering host supplies a theme-aware palette so dark/light/auto themes look consistent.
   - **`user_custom_deliverables` enforcement**: Phase 0 extracts `*.md` filename mentions from `free_text_notes` and persists them as `goal.json.user_custom_deliverables`. Phase 2 adds those files to `wbs.json.chapters[]` with `kind: "user_custom"` under a relaxed naming regex. Phase 6 audits that every one of them exists in `final/` with a non-empty body (≥ 10 lines outside code fences). `coverage-check.py` check 12 enforces this.

@@ -248,7 +248,7 @@ cc-rsg/
 
 ## Status
 
-Currently **v0.5.0** (intent-vs-delivery enforcement + post-pilot quality hardening).
+Currently **v0.6.0** (deterministic-pipeline fixes from an external bug report).
 
 ### Known Limitations
 
@@ -263,7 +263,8 @@ Currently **v0.5.0** (intent-vs-delivery enforcement + post-pilot quality harden
 - ~~v0.3: Depth modes (comprehensive / outline / interactive), Phase 6.5 interactive deep-dive, outline-tables.md~~ (done)
 - ~~v0.4: English-base migration of the entire skill bundle; bilingual output via `output_language`; README flipped to English-first~~ (done)
 - ~~v0.5: Mermaid styling contract (host-themed palette), `user_custom_deliverables` enforcement, strict `[REF: path:line]` format, Phase 5 skip prevention, intent-vs-delivery audit, optional Context Optimization mode B variant~~ (done)
-- v0.6: UI for custom categories, templates added based on user feedback
+- ~~v0.6: Phase 0 bundle staging into `.cc-rsg/skill/`, `[REF:]` placeholder consistency (no leading `L`), Sources Read counter fix, Ruby top-level method extraction~~ (done)
+- v0.7: UI for custom categories, templates added based on user feedback
 - v1.0: Stable release after several real-project applications
 
 ---
@@ -571,7 +572,7 @@ cc-rsg/
 
 ## 開発状況
 
-現在 **v0.5.0**(intent-vs-delivery 検証 + 試験運用フィードバックの品質強化)。
+現在 **v0.6.0**(外部バグ報告に基づく決定的パイプラインの修正)。
 
 ### 既知の制約
 
@@ -586,7 +587,8 @@ cc-rsg/
 - ~~v0.3: depth モード(comprehensive / outline / interactive)、Phase 6.5 対話深掘りモード、outline-tables.md~~(済)
 - ~~v0.4: スキル本体一式の英語ベース化、`output_language` によるバイリンガル出力、README 英語先頭化~~(済)
 - ~~v0.5: Mermaid 配色契約(ホストテーマパレット)、`user_custom_deliverables` 強制化、strict `[REF: path:line]` 形式、Phase 5 skip 防止、intent-vs-delivery 監査、Context Optimization mode B(オプション)~~(済)
-- v0.6: カスタムカテゴリのUI追加、利用フィードバックを受けたテンプレート追加
+- ~~v0.6: Phase 0 でのバンドル `.cc-rsg/skill/` への stage、`[REF:]` プレースホルダの整合(先頭 `L` 廃止)、Sources Read カウンタ修正、Ruby トップレベルメソッド抽出~~(済)
+- v0.7: カスタムカテゴリのUI追加、利用フィードバックを受けたテンプレート追加
 - v1.0: 数件の実プロジェクト適用後、安定版として公開
 
 ---
