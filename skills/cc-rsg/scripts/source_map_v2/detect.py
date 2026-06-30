@@ -5,8 +5,8 @@ language is using, so layer-2 extractors can pick the right query set (e.g. the
 same Python ``def`` is an endpoint under FastAPI but a plain callable elsewhere).
 
 Detection is best-effort and never raises: a repo with no recognised manifest
-simply yields no framework hints. Each hint records *evidence* so the output is
-auditable (important for the paper's GT-provenance story).
+simply yields no framework hints. Each hint records the *evidence* that
+triggered it, so the detection result is auditable.
 """
 
 from __future__ import annotations

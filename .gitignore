@@ -43,3 +43,6 @@ Thumbs.db
 .env.local
 *.token
 .credentials.json
+
+# local working dir (not part of the published skill)
+**/_local/
