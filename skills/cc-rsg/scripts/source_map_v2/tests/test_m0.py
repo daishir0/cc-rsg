@@ -100,6 +100,7 @@ def _make_project(tmp_path):
     (root / "app" / "main.py").write_text("def hello():\n    return 1\n", encoding="utf-8")
     (root / "app" / "ui.ts").write_text("export const x = 1\n", encoding="utf-8")
     (root / "legacy.php").write_text("<?php class C {}\n", encoding="utf-8")
+    (root / "legacy.kt").write_text("fun main() {}\n", encoding="utf-8")  # kotlin: no extractor yet
     (root / "README.txt").write_text("not source\n", encoding="utf-8")
     (root / "requirements.txt").write_text("fastapi==0.110\n", encoding="utf-8")
     (root / "package.json").write_text(json.dumps({"dependencies": {"next": "14"}}), encoding="utf-8")
@@ -115,12 +116,12 @@ def test_layer1_framework_detection_with_evidence(tmp_path):
 
 
 def test_unsupported_language_falls_back_with_loud_warning(tmp_path):
-    """A recognised language with no extractor (php) must warn, not vanish (P4)."""
-    root = _make_project(tmp_path)  # contains legacy.php + README.txt
+    """A recognised language with no extractor (kotlin) must warn, not vanish (P4)."""
+    root = _make_project(tmp_path)  # contains legacy.kt + README.txt
     payload = build_source_map(root).to_dict()
-    assert any("'php'" in w for w in payload["warnings"])
-    php_units = [u for u in payload["units"] if u["language"] == "php"]
-    assert php_units and php_units[0]["kind"] == "php_file"   # file-level fallback
+    assert any("'kotlin'" in w for w in payload["warnings"])
+    kt_units = [u for u in payload["units"] if u["language"] == "kotlin"]
+    assert kt_units and kt_units[0]["kind"] == "kotlin_file"  # file-level fallback
     assert payload["stats"]["files_excluded"] >= 1            # README.txt excluded
 
 
